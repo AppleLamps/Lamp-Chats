@@ -46,13 +46,23 @@ function transformMessagesForProvider(messages: ClientMessage[], provider: strin
             console.log('Processing image URL:', imageUrl.substring(0, 100) + '...');
 
             if (imageUrl.startsWith('data:')) {
-              // Data URL is already properly formatted
-              const transformed = {
-                type: 'image_url',
-                image_url: { url: imageUrl },
-              };
-              console.log('Transformed image content:', transformed);
-              return transformed;
+              if (provider === 'openrouter') {
+                const base64_data = imageUrl.split(',')[1];
+                const transformed = {
+                  type: 'image_url',
+                  image_url: { url: base64_data },
+                };
+                console.log('Transformed image content for OpenRouter.');
+                return transformed;
+              } else {
+                // For other providers, keep the original data URL
+                const transformed = {
+                  type: 'image_url',
+                  image_url: { url: imageUrl },
+                };
+                console.log('Transformed image content:', transformed);
+                return transformed;
+              }
             }
           }
 
