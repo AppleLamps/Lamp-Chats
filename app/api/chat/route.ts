@@ -2,53 +2,76 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { streamText, smoothStream } from 'ai';
+import { streamText, smoothStream, CoreMessage } from 'ai';
 import { headers } from 'next/headers';
 import { getModelConfig, AIModel } from '@/lib/models';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const maxDuration = 60;
 
+// Define custom types for messages
+interface ImageUrlPart {
+  type: 'image_url';
+  image_url: { url: string };
+}
+interface InputAudioPart {
+  type: 'input_audio';
+  input_audio: { data: string; format: string };
+}
+interface TextPart {
+  type: 'text';
+  text: string;
+}
+type ClientPart = ImageUrlPart | InputAudioPart | TextPart;
+
+interface ClientMessage {
+  role: 'user' | 'assistant' | 'system' | 'tool' | 'function' | 'data';
+  content: string | ClientPart[];
+  [key: string]: unknown;
+}
+
 // Helper function to transform messages for different providers
-function transformMessagesForProvider(messages: any[], provider: string) {
+function transformMessagesForProvider(messages: ClientMessage[], provider: string) {
   console.log('Transforming messages for provider:', provider);
   console.log('Original messages:', JSON.stringify(messages, null, 2));
   
   return messages.map(message => {
     if (message.role === 'user' && Array.isArray(message.content)) {
       // Transform content array for multimodal messages
-      const transformedContent = message.content.map((content: any) => {
-        if (content.type === 'image_url' && content.image_url?.url) {
-          // Ensure the image URL is properly formatted
-          const imageUrl = content.image_url.url;
-          console.log('Processing image URL:', imageUrl.substring(0, 100) + '...');
-          
-          if (imageUrl.startsWith('data:')) {
-            // Data URL is already properly formatted
-            const transformed = {
-              type: 'image_url',
-              image_url: { url: imageUrl }
-            };
-            console.log('Transformed image content:', transformed);
-            return transformed;
+      const transformedContent = message.content.map(content => {
+        // Now, we need to check the type of content before accessing specific properties
+        if ('type' in content) {
+          if (content.type === 'image_url' && 'image_url' in content && (content as ImageUrlPart).image_url?.url) {
+            const imageUrl = (content as ImageUrlPart).image_url.url;
+            console.log('Processing image URL:', imageUrl.substring(0, 100) + '...');
+
+            if (imageUrl.startsWith('data:')) {
+              // Data URL is already properly formatted
+              const transformed = {
+                type: 'image_url',
+                image_url: { url: imageUrl },
+              };
+              console.log('Transformed image content:', transformed);
+              return transformed;
+            }
           }
-        }
-        
-        if (content.type === 'input_audio' && content.input_audio) {
-          // Handle audio input for OpenRouter
-          if (provider === 'openrouter') {
-            return {
-              type: 'input_audio',
-              input_audio: content.input_audio
-            };
+
+          if (content.type === 'input_audio' && 'input_audio' in content && (content as InputAudioPart).input_audio) {
+            // Handle audio input for OpenRouter
+            if (provider === 'openrouter') {
+              return {
+                type: 'input_audio',
+                input_audio: (content as InputAudioPart).input_audio,
+              };
+            }
+            // For other providers, skip audio or handle differently
+            return null;
           }
-          // For other providers, skip audio or handle differently
-          return null;
-        }
-        
-        // Return text content as-is
-        if (content.type === 'text') {
-          return content;
+
+          // Return text content as-is
+          if (content.type === 'text') {
+            return content;
+          }
         }
         
         return content;
@@ -130,7 +153,7 @@ export async function POST(req: NextRequest) {
 
     const result = streamText({
       model: aiModel,
-      messages: transformedMessages,
+      messages: transformedMessages as CoreMessage[],
       onError: (error) => {
         console.error('AI streaming error:', error);
       },
