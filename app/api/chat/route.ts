@@ -2,7 +2,7 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { streamText, smoothStream, CoreMessage } from 'ai';
+import { streamText, smoothStream, convertToModelMessages, UIMessage } from 'ai';
 import { headers } from 'next/headers';
 import { getModelConfig, AIModel } from '@/lib/models';
 import { NextRequest, NextResponse } from 'next/server';
@@ -107,7 +107,16 @@ export async function POST(req: NextRequest) {
     console.log('Model:', model);
     console.log('Raw messages received:', JSON.stringify(messages, null, 2));
 
-    const modelConfig = getModelConfig(model as AIModel);
+    const modelConfig = getModelConfig(model as AIModel) as any;
+    if (!modelConfig) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unknown or unsupported model', received: model }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
     const apiKey = headersList.get(modelConfig.headerKey) as string;
 
     if (!apiKey) {
@@ -120,9 +129,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Transform messages based on provider
-    const transformedMessages = transformMessagesForProvider(messages, modelConfig.provider);
-    console.log('Final transformed messages for AI:', JSON.stringify(transformedMessages, null, 2));
+    // Messages are expected to be in UIMessage format from the client
+    console.log('Final messages for AI:', JSON.stringify(messages, null, 2));
 
     let aiModel;
     switch (modelConfig.provider) {
@@ -153,7 +161,7 @@ export async function POST(req: NextRequest) {
 
     const result = streamText({
       model: aiModel,
-      messages: transformedMessages as CoreMessage[],
+      messages: convertToModelMessages(messages as UIMessage[]),
       maxOutputTokens: modelConfig.maxOutputTokens,
       onError: (error) => {
         console.error('AI streaming error:', error);
@@ -177,10 +185,13 @@ export async function POST(req: NextRequest) {
       abortSignal: req.signal,
     });
 
-    return result.toDataStreamResponse({
+    return result.toUIMessageStreamResponse({
       sendReasoning: true,
-      getErrorMessage: (error) => {
-        return (error as { message: string }).message;
+      onError: (error) => {
+        if (error == null) return 'unknown error';
+        if (typeof error === 'string') return error;
+        if (error instanceof Error) return error.message;
+        return JSON.stringify(error);
       },
     });
   } catch (error) {

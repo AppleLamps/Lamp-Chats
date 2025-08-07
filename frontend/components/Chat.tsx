@@ -1,8 +1,8 @@
-import { useChat } from '@ai-sdk/react';
+import { useChat, UseChatHelpers } from '@ai-sdk/react';
+import { DefaultChatTransport, UIMessage } from 'ai';
 import Messages from './Messages';
 import ChatInput from './ChatInput';
 import ChatNavigator from './ChatNavigator';
-import { UIMessage } from 'ai';
 import { v4 as uuidv4 } from 'uuid';
 import { createMessage } from '@/frontend/dexie/queries';
 import { useAPIKeyStore } from '@/frontend/stores/APIKeyStore';
@@ -12,6 +12,7 @@ import { SidebarTrigger, useSidebar } from './ui/sidebar';
 import { Button } from './ui/button';
 import { MessageSquareMore } from 'lucide-react';
 import { useChatNavigator } from '@/frontend/hooks/useChatNavigator';
+import { useState } from 'react';
 
 interface ChatProps {
   threadId: string;
@@ -22,6 +23,7 @@ export default function Chat({ threadId, initialMessages }: ChatProps) {
   const { getKey } = useAPIKeyStore();
   const selectedModel = useModelStore((state) => state.selectedModel);
   const modelConfig = useModelStore((state) => state.getModelConfig());
+  const [input, setInput] = useState('');
 
   const {
     isNavigatorVisible,
@@ -33,39 +35,34 @@ export default function Chat({ threadId, initialMessages }: ChatProps) {
 
   const {
     messages,
-    input,
     status,
-    setInput,
     setMessages,
-    append,
     stop,
-    reload,
+    regenerate,
+    sendMessage,
     error,
-  } = useChat({
+  } = useChat<UIMessage>({
     id: threadId,
-    initialMessages,
+    messages: initialMessages,
     experimental_throttle: 50,
-    onFinish: async ({ parts }) => {
-      const aiMessage: UIMessage = {
-        id: uuidv4(),
-        parts: parts as UIMessage['parts'],
-        role: 'assistant',
-        content: '',
+    onFinish: async ({ message }) => {
+      const aiMessage = {
+        id: message.id || uuidv4(),
+        parts: message.parts as UIMessage['parts'],
+        role: 'assistant' as const,
         createdAt: new Date(),
-      };
-
+      } as any;
       try {
-        await createMessage(threadId, aiMessage);
+        await createMessage(threadId, aiMessage as UIMessage);
       } catch (error) {
         console.error(error);
       }
     },
-    headers: {
-      [modelConfig.headerKey]: getKey(modelConfig.provider) || '',
-    },
-    body: {
-      model: selectedModel,
-    },
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      headers: () => ({ [modelConfig.headerKey]: getKey(modelConfig.provider) || '' }),
+      body: () => ({ model: selectedModel }),
+    }),
   });
 
   return (
@@ -79,7 +76,7 @@ export default function Chat({ threadId, initialMessages }: ChatProps) {
           messages={messages}
           status={status}
           setMessages={setMessages}
-          reload={reload}
+          regenerate={regenerate}
           error={error}
           registerRef={registerRef}
           stop={stop}
@@ -88,7 +85,7 @@ export default function Chat({ threadId, initialMessages }: ChatProps) {
           threadId={threadId}
           input={input}
           status={status}
-          append={append}
+          sendMessage={sendMessage}
           setInput={setInput}
           stop={stop}
         />

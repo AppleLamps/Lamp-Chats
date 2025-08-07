@@ -26,17 +26,14 @@ import { useMessageSummary } from '../hooks/useMessageSummary';
 
 interface ChatInputProps {
   threadId: string;
-  input: UseChatHelpers['input'];
-  status: UseChatHelpers['status'];
-  setInput: UseChatHelpers['setInput'];
-  append: UseChatHelpers['append'];
-  stop: UseChatHelpers['stop'];
-  sendMessage?: (message: any, options?: any) => void;
+  input: string;
+  status: UseChatHelpers<any>['status'];
+  setInput: (value: string) => void;
+  stop: UseChatHelpers<any>['stop'];
+  sendMessage: (message: any, options?: any) => void;
 }
 
-interface StopButtonProps {
-  stop: UseChatHelpers['stop'];
-}
+interface StopButtonProps { stop: UseChatHelpers<any>['stop']; }
 
 interface SendButtonProps {
   onSubmit: () => void;
@@ -48,10 +45,10 @@ function PureChatInput({
   threadId,
   input,
   status,
-  setInput,
-  append,
+    setInput,
   stop,
-}: ChatInputProps) {
+    sendMessage,
+  }: ChatInputProps) {
   const canChat = useAPIKeyStore((state) => state.hasRequiredKeys());
 
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
@@ -246,15 +243,13 @@ function PureChatInput({
   };
 
   // Helper function to create UI message
-  const createUIMessage = (messageId: string, content: any[], apiContent: any[]) => {
-    return {
-      id: messageId,
-      parts: content.map((c) => ({ ...c })),
-      role: 'user' as const,
-      content: apiContent as any,
-      createdAt: new Date(),
-    };
-  };
+  const createUIMessage = (messageId: string, content: any[], apiContent: any[]) => ({
+    id: messageId,
+    parts: content.map((c) => ({ ...c })),
+    role: 'user' as const,
+    content: apiContent as any,
+    createdAt: new Date(),
+  });
 
   // Helper function to handle thread creation and completion
   const handleThreadAndCompletion = async (currentInput: string, messageId: string) => {
@@ -310,7 +305,9 @@ function PureChatInput({
     // Save message and update UI
     await createMessage(threadId, userMessage);
     console.log('DEBUG outgoing', userMessage);
-    append(userMessage);
+    sendMessage(userMessage, {
+      body: { model: useModelStore.getState().selectedModel },
+    });
     setInput('');
     setAttachment(null);
     adjustHeight(true);
@@ -319,7 +316,7 @@ function PureChatInput({
     status,
     setInput,
     adjustHeight,
-    append,
+    sendMessage,
     id,
     textareaRef,
     threadId,

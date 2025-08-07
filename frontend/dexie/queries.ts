@@ -62,12 +62,12 @@ export const createMessage = async (threadId: string, message: UIMessage) => {
       threadId,
       parts: message.parts,
       role: message.role,
-      content: message.content,
-      createdAt: message.createdAt || new Date(),
+      content: (message as any).content,
+      createdAt: (message as any).createdAt || new Date(),
     });
 
     await db.threads.update(threadId, {
-      lastMessageAt: message.createdAt || new Date(),
+      lastMessageAt: (message as any).createdAt || new Date(),
     });
   });
 };

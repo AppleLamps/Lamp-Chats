@@ -15,11 +15,10 @@ export default function Thread() {
   const convertToUIMessages = (messages?: DBMessage[]) => {
     return messages?.map((message) => ({
       id: message.id,
-      role: message.role,
+      role: (message.role === 'data' ? 'user' : message.role) as UIMessage['role'],
       parts: message.parts as UIMessage['parts'],
-      content: message.content || '',
       createdAt: message.createdAt,
-    }));
+    } as UIMessage));
   };
 
   // Show skeleton loading while messages are being fetched

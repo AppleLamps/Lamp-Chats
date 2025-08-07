@@ -12,18 +12,18 @@ function PureMessages({
   messages,
   status,
   setMessages,
-  reload,
+  regenerate,
   error,
   stop,
   registerRef,
 }: {
   threadId: string;
   messages: UIMessage[];
-  setMessages: UseChatHelpers['setMessages'];
-  reload: UseChatHelpers['reload'];
-  status: UseChatHelpers['status'];
-  error: UseChatHelpers['error'];
-  stop: UseChatHelpers['stop'];
+  setMessages: UseChatHelpers<UIMessage>['setMessages'];
+  regenerate: UseChatHelpers<UIMessage>['regenerate'];
+  status: UseChatHelpers<UIMessage>['status'];
+  error: UseChatHelpers<UIMessage>['error'];
+  stop: UseChatHelpers<UIMessage>['stop'];
   registerRef: (id: string, ref: HTMLDivElement | null) => void;
 }) {
 
@@ -36,7 +36,7 @@ function PureMessages({
           message={message}
           isStreaming={status === 'streaming' && messages.length - 1 === index}
           setMessages={setMessages}
-          reload={reload}
+          reload={regenerate}
           registerRef={registerRef}
           stop={stop}
         />

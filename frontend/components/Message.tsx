@@ -20,11 +20,11 @@ function PureMessage({
 }: {
   threadId: string;
   message: UIMessage;
-  setMessages: UseChatHelpers['setMessages'];
-  reload: UseChatHelpers['reload'];
+  setMessages: UseChatHelpers<UIMessage>['setMessages'];
+  reload: UseChatHelpers<UIMessage>['regenerate'];
   isStreaming: boolean;
   registerRef: (id: string, ref: HTMLDivElement | null) => void;
-  stop: UseChatHelpers['stop'];
+  stop: UseChatHelpers<UIMessage>['stop'];
 }) {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
 
@@ -49,7 +49,7 @@ function PureMessage({
                   key={`message-${message.id}-display`}
                   threadId={threadId}
                   message={message}
-                  content={(message.parts.find(p => p.type === 'text' && !(p as any).hidden && 'text' in p) as any)?.text || ''}
+                   content={(message.parts.find(p => p.type === 'text' && !(p as any).hidden && 'text' in p) as any)?.text || ''}
                   setMessages={setMessages}
                   reload={reload}
                   setMode={setMode}
@@ -269,7 +269,7 @@ function PureMessage({
             <div className="px-4 pb-2">
               <MessageControls
                 threadId={threadId}
-                content={(message.parts.find(p => p.type === 'text' && 'text' in p) as any)?.text || ''}
+               content={(message.parts.find(p => p.type === 'text' && 'text' in p) as any)?.text || ''}
                 message={message}
                 setMode={setMode}
                 setMessages={setMessages}

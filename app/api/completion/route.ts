@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     apiKey: googleApiKey,
   });
 
-  const { prompt, isTitle, messageId, threadId } = await req.json();
+  const { prompt } = await req.json();
 
   try {
     const { text: title } = await generateText({
@@ -34,7 +34,8 @@ export async function POST(req: Request) {
       prompt,
     });
 
-    return NextResponse.json({ title, isTitle, messageId, threadId });
+    // Return in the shape expected by useCompletion: { text }
+    return NextResponse.json({ text: title });
   } catch (error) {
     console.error('Failed to generate title:', error);
     return NextResponse.json(

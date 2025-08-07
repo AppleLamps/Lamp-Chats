@@ -25,10 +25,10 @@ export default function MessageEditor({
   threadId: string;
   message: UIMessage;
   content: string;
-  setMessages: UseChatHelpers['setMessages'];
+  setMessages: UseChatHelpers<UIMessage>['setMessages'];
   setMode: Dispatch<SetStateAction<'view' | 'edit'>>;
-  reload: UseChatHelpers['reload'];
-  stop: UseChatHelpers['stop'];
+  reload: UseChatHelpers<UIMessage>['regenerate'];
+  stop: UseChatHelpers<UIMessage>['stop'];
 }) {
   const [draftContent, setDraftContent] = useState(content);
   const getKey = useAPIKeyStore((state) => state.getKey);
@@ -38,27 +38,14 @@ export default function MessageEditor({
     ...(getKey('google') && {
       headers: { 'X-Google-API-Key': getKey('google')! },
     }),
-    onResponse: async (response) => {
-      try {
-        const payload = await response.json();
-
-        if (response.ok) {
-          const { title, messageId, threadId } = payload;
-          await createMessageSummary(threadId, messageId, title);
-        } else {
-          toast.error(
-            payload.error || 'Failed to generate a summary for the message'
-          );
-        }
-      } catch (error) {
-        console.error(error);
-      }
+    onFinish: async (_prompt, _completion) => {
+      // No-op: the completion API returns JSON, handled after call
     },
   });
 
   const handleSave = async () => {
     try {
-      await deleteTrailingMessages(threadId, message.createdAt as Date);
+      await deleteTrailingMessages(threadId, (message as any).createdAt as Date);
 
       const updatedMessage = {
         ...message,
@@ -85,12 +72,22 @@ export default function MessageEditor({
         return messages;
       });
 
-      complete(draftContent, {
-        body: {
-          messageId: updatedMessage.id,
-          threadId,
-        },
-      });
+      try {
+        const title = await complete(draftContent, {
+          body: {
+            messageId: updatedMessage.id,
+            threadId,
+          },
+        });
+        if (title) {
+          await createMessageSummary(threadId, updatedMessage.id, title);
+        } else {
+          toast.error('Failed to generate a summary for the message');
+        }
+      } catch (error) {
+        console.error('Failed to complete summary for edited message:', error);
+        toast.error('Failed to generate a summary for the message');
+      }
       setMode('view');
 
       // stop the current stream if any
