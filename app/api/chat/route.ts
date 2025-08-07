@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
     const result = streamText({
       model: aiModel,
       messages: transformedMessages as CoreMessage[],
+      maxOutputTokens: modelConfig.maxOutputTokens,
       onError: (error) => {
         console.error('AI streaming error:', error);
       },
