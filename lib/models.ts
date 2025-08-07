@@ -13,6 +13,10 @@ export const AI_MODELS = [
   'Grok-4',
   'Claude Sonnet 4',
   'Claude Opus 4.1',
+  'GPT-5 (Chat)',
+  'GPT-5',
+  'GPT-5 Mini',
+  'GPT-5 Nano',
 ] as const;
 
 export type AIModel = (typeof AI_MODELS)[number];
@@ -21,6 +25,7 @@ export type ModelConfig = {
   modelId: string;
   provider: Provider;
   headerKey: string;
+  maxOutputTokens?: number;
 };
 
 export const MODEL_CONFIGS = {
@@ -83,6 +88,30 @@ export const MODEL_CONFIGS = {
     modelId: 'anthropic/claude-opus-4.1',
     provider: 'openrouter',
     headerKey: 'X-OpenRouter-API-Key',
+  },
+  'GPT-5 (Chat)': {
+    modelId: 'openai/gpt-5-chat',
+    provider: 'openrouter',
+    headerKey: 'X-OpenRouter-API-Key',
+    maxOutputTokens: 128000,
+  },
+  'GPT-5': {
+    modelId: 'openai/gpt-5',
+    provider: 'openrouter',
+    headerKey: 'X-OpenRouter-API-Key',
+    maxOutputTokens: 128000,
+  },
+  'GPT-5 Mini': {
+    modelId: 'openai/gpt-5-mini',
+    provider: 'openrouter',
+    headerKey: 'X-OpenRouter-API-Key',
+    maxOutputTokens: 128000,
+  },
+  'GPT-5 Nano': {
+    modelId: 'openai/gpt-5-nano',
+    provider: 'openrouter',
+    headerKey: 'X-OpenRouter-API-Key',
+    maxOutputTokens: 128000,
   },
 } as const satisfies Record<AIModel, ModelConfig>;
 
