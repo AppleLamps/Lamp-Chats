@@ -251,19 +251,6 @@ function PureChatInput({
     createdAt: new Date(),
   });
 
-  // Helper function to handle thread creation and completion
-  const handleThreadAndCompletion = async (currentInput: string, messageId: string) => {
-    if (!id) {
-      navigate(`/chat/${threadId}`);
-      await createThread(threadId);
-      complete(currentInput.trim(), {
-        body: { threadId, messageId, isTitle: true },
-      });
-    } else {
-      complete(currentInput.trim(), { body: { messageId, threadId } });
-    }
-  };
-
   // Refactored handleSubmit function
   const handleSubmit = useCallback(async () => {
     const currentInput = textareaRef.current?.value || input;
@@ -275,6 +262,31 @@ function PureChatInput({
     )
       return;
 
+    // Clear input fields
+    setInput('');
+    setAttachment(null);
+    adjustHeight(true);
+
+    if (!id) {
+      // New chat
+      const messageId = uuidv4();
+      const content: any[] = [{ type: 'text', text: currentInput.trim() }];
+      if (attachment) {
+        content.push(...createAttachmentContent(attachment));
+      }
+      const apiContent = buildApiContent(content);
+      const userMessage = createUIMessage(messageId, content, apiContent);
+
+      navigate(`/chat/${threadId}`, { state: { userMessage } });
+
+      complete(currentInput.trim(), {
+        body: { threadId, messageId, isTitle: true },
+      });
+
+      return;
+    }
+
+    // Existing chat
     const messageId = uuidv4();
     const content: any[] = [{ type: 'text', text: currentInput.trim() }];
 
@@ -286,31 +298,17 @@ function PureChatInput({
     // Build API content
     const apiContent = buildApiContent(content);
 
-    // Debug logging for image content
-    const hasImage = apiContent.some(c => c.type === 'image_url');
-    if (hasImage) {
-      console.log('DEBUG: Message contains image, API content:', JSON.stringify(apiContent.map(c => ({
-        type: c.type,
-        hasImageUrl: c.type === 'image_url' ? !!c.image_url : undefined,
-        imageUrlLength: c.type === 'image_url' && c.image_url?.url ? c.image_url.url.length : undefined
-      })), null, 2));
-    }
-
     // Create user message
     const userMessage = createUIMessage(messageId, content, apiContent);
 
-    // Handle thread creation and completion
-    await handleThreadAndCompletion(currentInput, messageId);
-
     // Save message and update UI
     await createMessage(threadId, userMessage);
-    console.log('DEBUG outgoing', userMessage);
     sendMessage(userMessage, {
       body: { model: useModelStore.getState().selectedModel },
     });
-    setInput('');
-    setAttachment(null);
-    adjustHeight(true);
+
+    complete(currentInput.trim(), { body: { messageId, threadId } });
+
   }, [
     input,
     status,
@@ -322,6 +320,7 @@ function PureChatInput({
     threadId,
     complete,
     attachment,
+    navigate,
   ]);
 
   if (!canChat) {
