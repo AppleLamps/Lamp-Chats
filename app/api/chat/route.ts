@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
 
     return result.toUIMessageStreamResponse({
       sendReasoning: true,
-      onError: (error) => {
+      onError: (error: unknown) => {
         if (error == null) return 'unknown error';
         if (typeof error === 'string') return error;
         if (error instanceof Error) return error.message;
