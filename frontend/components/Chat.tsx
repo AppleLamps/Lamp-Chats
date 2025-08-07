@@ -1,10 +1,10 @@
-import { useChat, UseChatHelpers } from '@ai-sdk/react';
+import { useChat, UseChatHelpers, useCompletion } from '@ai-sdk/react';
 import { DefaultChatTransport, UIMessage } from 'ai';
 import Messages from './Messages';
 import ChatInput from './ChatInput';
 import ChatNavigator from './ChatNavigator';
 import { v4 as uuidv4 } from 'uuid';
-import { createMessage } from '@/frontend/dexie/queries';
+import { createMessage, createThread } from '@/frontend/dexie/queries';
 import { useAPIKeyStore } from '@/frontend/stores/APIKeyStore';
 import { useModelStore } from '@/frontend/stores/ModelStore';
 import ThemeToggler from './ui/ThemeToggler';
@@ -12,7 +12,8 @@ import { SidebarTrigger, useSidebar } from './ui/sidebar';
 import { Button } from './ui/button';
 import { MessageSquareMore } from 'lucide-react';
 import { useChatNavigator } from '@/frontend/hooks/useChatNavigator';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface ChatProps {
   threadId: string;
@@ -24,6 +25,8 @@ export default function Chat({ threadId, initialMessages }: ChatProps) {
   const selectedModel = useModelStore((state) => state.selectedModel);
   const modelConfig = useModelStore((state) => state.getModelConfig());
   const [input, setInput] = useState('');
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const {
     isNavigatorVisible,
@@ -32,6 +35,9 @@ export default function Chat({ threadId, initialMessages }: ChatProps) {
     registerRef,
     scrollToMessage,
   } = useChatNavigator();
+
+  const initialMessagesRef = useRef(initialMessages);
+  const { complete } = useCompletion();
 
   const {
     messages,
@@ -43,7 +49,7 @@ export default function Chat({ threadId, initialMessages }: ChatProps) {
     error,
   } = useChat<UIMessage>({
     id: threadId,
-    messages: initialMessages,
+    messages: initialMessagesRef.current,
     experimental_throttle: 50,
     onFinish: async ({ message }) => {
       const aiMessage = {
@@ -64,6 +70,30 @@ export default function Chat({ threadId, initialMessages }: ChatProps) {
       body: () => ({ model: selectedModel }),
     }),
   });
+
+  useEffect(() => {
+    const handleInitialMessage = async () => {
+      if (location.state?.userMessage) {
+        const userMessage = location.state.userMessage as UIMessage;
+
+        await createThread(threadId);
+        await createMessage(threadId, userMessage);
+
+        sendMessage(userMessage);
+
+        const textContent = userMessage.parts.find(p => p.type === 'text' && 'text' in p) as { type: 'text', text: string } | undefined;
+        if (textContent) {
+          complete(textContent.text.trim(), {
+            body: { threadId, messageId: userMessage.id, isTitle: true },
+          });
+        }
+
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    };
+
+    handleInitialMessage();
+  }, [location.state, threadId, sendMessage, complete, navigate]);
 
   return (
     <div className="relative w-full">
